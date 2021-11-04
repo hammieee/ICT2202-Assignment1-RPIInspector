@@ -24,6 +24,4 @@ This is a project made by [Raina](https://github.com/rainyraina), [Shu Fen](http
 
 ## Installation & Documentation
 
-Learn more about using [wp3 on the official site!](https://wifipumpkin3.github.io)
-
 - [User Manual](https://github.com/hammieee/ICT2202-Assignment1-RPIInspector/wiki/User-Manual)
