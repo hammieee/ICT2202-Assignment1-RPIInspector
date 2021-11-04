@@ -1,8 +1,10 @@
 import pyfiglet
 import os
 import sys
+import datetime
+import generatepdf as reportpdf
 
-ascii_banner = pyfiglet.figlet_format("RPI Inspector v4")
+ascii_banner = pyfiglet.figlet_format("RPI Inspector")
 print(ascii_banner)
 
 menu = {}
@@ -17,7 +19,6 @@ dest_path = None
 path = os.getcwd()
 
 def image():
-    #Reference: https://stackoverflow.com/questions/17008042/python-disk-imaging
     description = "This option is to image the Raspberry Pi's SD card. You can also specify the sector size you want."
     print(description)
     cmd = 'lsblk'
@@ -37,14 +38,6 @@ def image():
     os.system(cmd)
     cmd = 'sudo sha256sum ' + dest
     os.system(cmd)
-    
-    #sector = int(input("Enter sector size (Default:512) : "))
-    #with open(source,'rb') as f:
-    #    with open(dest, "wb") as i:
-    #        while True:
-    #            if i.write(f.read(sector)) == 0:
-    #                print("Done Imaging")
-    #                break
 
 def mount():
     cmd = 'mkdir -p '+path+'/mbr '+path+'/filesystem'
@@ -56,6 +49,7 @@ def mount():
         dest   = input("Enter the image's name (e.g. image.dd): ")
         dest_path = path+'/'+dest
         cmd = 'fdisk -l '+dest
+    print("\n")
     os.system(cmd)
 
     print("\nTake note of the start block for Sector size, sdb1 and sdb2 that you wish to mount\n")
@@ -77,93 +71,71 @@ def mount():
 
 def generate():
     if os.path.isdir(path+'/filesystem') == True:
-        ssh()
-        installedpack()
-        upgradedpack()
-        removedpack()
-        loginoutrecord()
-        filenames = ['SSHLogin.txt', 'InstalledPackages.txt', 'UpgradedPackages.txt', 'RemovedPackages.txt', 'LoginoutRecords.txt']
-        with open('Report.txt', 'w') as outfile:
-            for fname in filenames:
-                with open(fname) as infile:
-                    for line in infile:
-                        outfile.write(line)
-        cmd = 'mkdir report'
-        os.system(cmd)
-        cmd = 'mv SSHLogin.txt report'
-        os.system(cmd)
-        cmd = 'mv InstalledPackages.txt report'
-        os.system(cmd)
-        cmd = 'mv UpgradedPackages.txt report'
-        os.system(cmd)
-        cmd = 'mv RemovedPackages.txt report'
-        os.system(cmd)
-        cmd = 'mv LoginoutRecords.txt report'
-        os.system(cmd)
+        
+        while True:
+            selection=input("\nReport type:\n\n1. Report activity from all time\n2. Report activity from specific day/period\n3. Back to main menu\n\nPlease select a report type that you wish to generate: ") 
+            
+            # if generating report for activities from all time
+            if selection =='1': 
+                # generate reports
+                filename="RPIReport_GeneralInfo.pdf"
+                reportpdf.generateReportGeneralInfo(path, filename)
+
+                filename="RPIReport_OtherInfo_AllTime.pdf"
+                reportpdf.generateReportAllTime(path, filename)
+
+                filename="RPIReport_Syslog_AllTime.pdf"
+                reportpdf.generateSyslogAllTime(path, filename)
+            
+            # if generating report for activities from specific period
+            elif selection == '2': 
+
+                try:
+                    print("\nIf you want to generate report for a specific day instead of a specific period, you may just put the same date for both start and end date.")
+                    startdate=input("\nPlease select a start date of the period [ddmmyyyy]: ") 
+                    enddate=input("\nPlease select a end date of the period [ddmmyyyy]: ") 
+                    s_d = startdate[:2]
+                    s_m = startdate[2:4]
+                    s_y = startdate[4:8]
+                    e_d = enddate[:2]
+                    e_m = enddate[2:4]
+                    e_y = enddate[4:8]
+                    
+                    # check whether the input is convertable to date format
+                    startdate = datetime.date(int(s_y),int(s_m),int(s_d))
+                    enddate = datetime.date(int(e_y),int(e_m),int(e_d))
+                    
+                    # check whether the startdate and enddate is valid                    
+                    if (startdate > enddate):
+                        print("\nPlease enter valid start date and end date.\n")
+                        break
+                except ValueError:
+                    print("\nPlease enter correct date format [ddmmyyyy]\n")
+                    break
+
+                # generate reports
+                filename="RPIReport_GeneralInfo.pdf"
+                reportpdf.generateReportGeneralInfo(path, filename)
+                
+                if startdate == enddate:
+                    filename1="RPIReport_OtherInfo_"+str(startdate)+".pdf"
+                    filename2="RPIReport_Syslog_"+str(startdate)+".pdf"
+                else:
+                    filename1="RPIReport_OtherInfo_"+str(startdate)+"_"+str(enddate)+".pdf"
+                    filename2="RPIReport_Syslog_"+str(startdate)+"_"+str(enddate)+".pdf"
+                reportpdf.generateReportSpecificPeriod(path, filename1, startdate, enddate)
+                reportpdf.generateSyslogSpecificPeriod(path, filename2, startdate, enddate)
+
+            # if back to main menu
+            elif selection == '3': 
+                print("\n\n")
+                break
+                
+            else:
+                print("Unknown Option Selected!") 
+
     else:
         print('\nPlease mount the file system (option 2) before generating report\n')
-    
-def ssh():
-    fopen = open('SSHLogin.txt', 'w+')
-    fopen.write("SSH Login Attempts \n")
-    cmd = 'cat '+path+'/filesystem/var/log/auth.log >> SSHLogin.txt'
-    os.system(cmd)
-    fopen.close()
-
-def installedpack():
-    fopen = open('InstalledPackages.txt', 'w+')
-    fopen.write("History of installed packages\n")
-    cmd = 'grep "install" '+path+'/filesystem/var/log/dpkg.log >> InstalledPackages.txt'
-    os.system(cmd)
-    cmd = 'grep "install" '+path+'/filesystem/var/log/dpkg.log.1 >> InstalledPackages.txt'
-    os.system(cmd)
-    #for i in range(2, 13):
-        #str1 = 'zgrep "install" /var/log/dpkg.log.'
-        #str2 = '.gz >> InstalledPackages.txt'
-        #cmd = str1 + str(i) + str2
-        #os.system(cmd)
-    cmd = 'zgrep "install" '+path+'/filesystem/var/log/dpkg.log.2.gz >> InstalledPackages.txt'
-    os.system(cmd)
-    fopen.close()
-
-def upgradedpack():
-    fopen = open('UpgradedPackages.txt', 'w+')
-    fopen.write("History of upgraded packages\n")
-    cmd = 'grep "upgrade" '+path+'/filesystem/var/log/dpkg.log >> UpgradedPackages.txt'
-    os.system(cmd)
-    cmd = 'grep "upgrade" '+path+'/filesystem/var/log/dpkg.log.1 >> UpgradedPackages.txt'
-    os.system(cmd)
-    #for i in range(2, 13):
-        #str1 = 'zgrep "upgrade" /var/log/dpkg.log.'
-        #str2 = '.gz >> UpgradedPackages.txt'
-        #cmd = str1 + str(i) + str2
-        #os.system(cmd)
-    cmd = 'zgrep "upgrade" '+path+'/filesystem/var/log/dpkg.log.2.gz >> UpgradedPackages.txt'
-    os.system(cmd)
-    fopen.close()
-
-def removedpack():
-    fopen = open('RemovedPackages.txt', 'w+')
-    fopen.write("History of removed packages\n")
-    cmd = 'grep "remove" '+path+'/filesystem/var/log/dpkg.log >> RemovedPackages.txt'
-    os.system(cmd)
-    cmd = 'grep "remove" '+path+'/filesystem/var/log/dpkg.log.1 >> RemovedPackages.txt'
-    os.system(cmd)
-    #for i in range(2, 13):
-        #str1 = 'zgrep "remove" /var/log/dpkg.log.'
-        #str2 = '.gz >> RemovedPackages.txt'
-        #cmd = str1 + str(i) + str2
-        #os.system(cmd)
-    cmd = 'zgrep "remove" '+path+'/filesystem/var/log/dpkg.log.2.gz >> RemovedPackages.txt'
-    os.system(cmd)
-    fopen.close()
-
-def loginoutrecord():
-    fopen = open('LoginoutRecords.txt', 'w+')
-    fopen.write("\nLogin/Logout Records\n")
-    cmd = 'last -f ' +path+'/var/log/wtmp >> LoginoutRecords.txt'
-    os.system(cmd)
-    fopen.close()
 
 def m1(sector,start1):
     cmd = "sudo umount -q "+path+"/filesystem/"
@@ -174,7 +146,7 @@ def m1(sector,start1):
     os.system(cmd) 
     print("MBR Mounted!")
     print("\nYou can now access it from "+path+"/mbr\n")
-    #os.system("gnome-terminal -e 'bash -c \"ls ~/Desktop/img1; exec bash\"'")
+    
 def m2(sector,start2):
     cmd = "sudo umount -q "+path+"/mbr/"
     os.system(cmd)
@@ -183,7 +155,6 @@ def m2(sector,start2):
     os.system(cmd) 
     print("File System Mounted!")
     print("\nYou can now access it from "+path+"/filesystem\n")
-    #os.system("gnome-terminal -e 'bash -c \"ls ~/Desktop/img2; exec bash\"'")
 
 def main():
     while True: 
