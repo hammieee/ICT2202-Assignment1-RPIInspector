@@ -3,7 +3,7 @@
 
 **A tool that image and extract logs from Raspberry Pi.**
 
-<img src="images/screenshot.png" />
+<img src="images/mainmenu.jpg" />
 
 ## Overview
 **RPI Inspector** is a tool that image and extract logs from Raspberry Pi, written in Python3 for Kali Linux or any Debian-based machine that offers security researchers to image a Raspberry Pi’s memory card and mount it to generate reports from the logs.
