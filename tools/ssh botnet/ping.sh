@@ -1,0 +1,1 @@
+ping -c1 raspberrypi | sed -nE 's/^PING[^(]+\(([^)]+)\).*/\1/p' > target.txt
